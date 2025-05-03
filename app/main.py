@@ -161,7 +161,7 @@ if method == "Manuel":
             features = possible_features
             #st.info(" Toutes les colonnes (sauf la cible) sont utilisées.")
         cat_candidates = df[features].select_dtypes(include=["object", "category", "string"]).columns.tolist()
-        categorical_cols = st.multiselect("🏷️ Colonnes catégoriques", cat_candidates)
+        categorical_cols = st.multiselect("Colonnes catégoriques", cat_candidates)
 
     st.write("Sélectionnez les colonnes pour appliquer des transformations :")
     transform_options = {
