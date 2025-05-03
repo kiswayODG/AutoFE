@@ -187,13 +187,62 @@ if method == "Manuel":
                         key=f"transform_{col_name}"
                 )
     
-if method == "Featuretools" and len(uploaded_files) > 1:
-    st.write("Spécifiez les colonnes de référence pour relier les tables :")
-    reference_columns = {}
-    for file in uploaded_files[1:]: 
-        df = pd.read_csv(file)
-        col = st.selectbox(f"Colonne de référence pour {file.name}", df.columns, key=f"ref_{file.name}")
-        reference_columns[file.name] = col
+if method == "Featuretools" :
+    if( len(uploaded_files) > 1):
+        dataframes = {}
+        temp_dfs = {}
+        st.write("Définir les index et time index (optionnel) :")
+        reference_columns = {}
+        for file in uploaded_files:
+            df = pd.read_csv(file)
+            temp_dfs[file.name] = df
+            
+            st.markdown(f"### {file.name}")
+            df_name = st.text_input(f"Nom du DataFrame (ex: customers)", value=file.name.split(".")[0], key=f"name_{file.name}")
+            index_col = st.selectbox(f"Index pour {df_name}", df.columns, key=f"index_{file.name}")
+            time_col = st.selectbox(f"Colonne de temps pour {df_name} (optionnel)", ["Aucun"] + list(df.columns), key=f"time_{file.name}")
+        
+            if time_col != "Aucun":
+                dataframes[df_name] = (df, index_col, time_col)
+            else:
+                dataframes[df_name] = (df, index_col)
+                
+        st.divider()
+        st.subheader("Définir les relations")
+
+        df_names = list(dataframes.keys())
+        relationships = []
+        num_rels = st.number_input("Combien de relations voulez-vous définir ?", min_value=0, max_value=10, value=0)
+
+        for i in range(num_rels):
+            st.markdown(f" Relation {i+1}")
+            parent_df = st.selectbox("DataFrame parent", df_names, key=f"parent_df_{i}")
+            parent_col = st.selectbox("Colonne clé du parent", temp_dfs[uploaded_files[df_names.index(parent_df)] .name].columns, key=f"parent_col_{i}")
+
+            child_df = st.selectbox("DataFrame enfant", df_names, key=f"child_df_{i}")
+            child_col = st.selectbox("Colonne clé de l'enfant", temp_dfs[uploaded_files[df_names.index(child_df)] .name].columns, key=f"child_col_{i}")
+
+            relationships.append((parent_df, parent_col, child_df, child_col))
+        st.divider()
+        target_df = st.selectbox("DataFrame cible ", df_names)
+        
+        target = st.selectbox(" Colonne cible", load_uploaded_csv_files(uploaded_files[0]).columns)
+
+    '''      
+    elif len(uploaded_files)==1:
+        df = pd.read_csv(uploaded_files[0])
+        st.write("Normalisation de la table unique :")
+        normalize = st.radio("Souhaitez-vous normaliser la table ?", ("Oui", "Non"))
+        if normalize == "Oui":
+            base_dataframe_name = st.text_input("Nom de la table de base", value="")
+            new_dataframe_name = st.text_input("Nom de la nouvelle table", value="")
+            index_column = st.text_input("Nom de la colonne d'index", value="")
+            additional_columns = st.multiselect(
+            "Colonnes supplémentaires", 
+            options=df[0].columns.tolist(),  
+            default=[] )
+    '''
+                    
 
 if st.button("Exécuter"):
     if uploaded_files:
@@ -203,14 +252,25 @@ if st.button("Exécuter"):
             if method == "AutoFeat":
                 features = autofeat.AutoFeatRegressor()
                 X = features.fit_transform(dfs[0].drop(columns=[target]), dfs[0][target])
-                st.write(X)
+                y = dfs[0][target]
                 
                 
             elif method == "Featuretools":
-                es = ft.EntitySet(id="id")
-                
+                if(len(dataframes)==0 or len(relationships)==0 or len(target_df)==0):   
+                    st.warning("Veuillez bien renseigner tous les paramètres nécessaire pour featuretools")
+                else :
+                    feature_matrix, feature_defs = ft.dfs(
+                    dataframes=dataframes,
+                    relationships=relationships,
+                    target_dataframe_name=target_df)
+                    
+                    feature_matrix.dropna(inplace=True) 
+                    X = feature_matrix.drop(columns=[target])
+                    y = feature_matrix[target]
+                    
+                '''
                 # Ajouter la table principale
-                es.entity_from_dataframe(entity_id="table_0", dataframe=dfs[0], index="index_col")
+                es.add_dataframe(entity_id="table_0", dataframe=dfs[0], index="index_col")
 
                 for i, df in enumerate(dfs[1:], start=1):
                     table_name = f"table_{i}"
@@ -219,7 +279,8 @@ if st.button("Exécuter"):
                     es.relationships.append(ft.Relationship(es[f"table_{i-1}"]['index_col'], es[table_name][ref_col]))
 
                 feature_matrix, feature_defs = ft.dfs(entityset=es, target_dataframe_name="table_0")
-                X = feature_matrix.drop(columns=[target])
+                '''
+                
                 
                 
             elif method == "Manuel":
@@ -234,9 +295,11 @@ if st.button("Exécuter"):
                         df[new_col_name] = transform_options[transform](df[col])
                         if new_col_name not in features:
                             features.append(new_col_name)
+                            
                 X = df[features]
+                y = dfs[0][target]
 
-            y = dfs[0][target]
+            
 
             if target_type == "Classification":
                 if model == "Random Forest Classifier":
@@ -335,10 +398,16 @@ if st.button("Exécuter"):
                 
             st.write("Téléchargez le dataset complété :")
             output = io.BytesIO()
+            df_complet = pd.concat([X, y], axis=1)
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                X.to_excel(writer, sheet_name='Dataset Complété', index=False)
+                df_complet.to_excel(writer, sheet_name='Dataset Complété', index=False)
             output.seek(0)
             st.download_button(label="Télécharger le dataset complété", data=output, file_name="dataset_complet.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.warning("Veuillez charger un fichier CSV et choisir une méthode d'AutoFE.")
 
+
+
+def normalize_dataframe(df,base_dataframe_name, new_dataframe_name, index, additional_columns):
+    # Vous pouvez ajouter des traitements spécifiques de normalisation ici
+    pass  # Implémentation spécifique ic
