@@ -71,8 +71,7 @@ with st.sidebar:
     
     st.markdown(f"{status_color[st.session_state.data_loaded]} Données chargées")
     st.markdown(f"{status_color[st.session_state.feature_engineering_done]} Feature Engineering terminé")
-    st.markdown(f"{status_color[st.session_state.model_trained]} Modèle entraîné")
-    st.markdown(f"{status_color[st.session_state.result]} Résultats analysés")
+    st.markdown(f"{status_color[st.session_state.model_trained]} Modèle entraîné") 
 
  
 try:

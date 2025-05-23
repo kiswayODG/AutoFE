@@ -46,13 +46,11 @@ def results_analysis_section():
     y_test = model_results['y_test']
     y_pred = model_results['y_pred']
     training_time = model_results['training_time']
-    cv_scores = model_results['cv_scores']
     
      
     st.subheader("Résumé des performances")
     st.write(f"**Modèle:** {model_name}")
     st.write(f"**Temps d'entraînement:** {training_time:.2f} secondes")
-    st.write(f"**Score de validation croisée moyen:** {cv_scores.mean():.4f} (±{cv_scores.std():.4f})")
     
     
     if target_type == "Classification":
@@ -93,36 +91,7 @@ def classification_analysis(model, X_test, y_test, y_pred):
     fig = plot_confusion_matrix(cm, class_names)
     st.pyplot(fig)
     
-    # Courbe ROC et PR pour la classification binaire
-    n_classes = len(np.unique(y_test))
-    if n_classes == 2 and hasattr(model, "predict_proba"):
-        st.subheader("Courbes ROC et Précision-Rappel")
-        
-        col1, col2 = st.columns(2)
-        
-        # Courbe ROC
-        with col1:
-            try:
-                y_score = model.predict_proba(X_test)[:, 1]
-                fpr, tpr, _ = roc_curve(y_test, y_score)
-                roc_auc = auc(fpr, tpr)
-                
-                fig = plot_roc_curve(fpr, tpr, roc_auc)
-                st.pyplot(fig)
-            except Exception as e:
-                st.error(f"Erreur lors de la création de la courbe ROC: {e}")
-        
-        # Courbe Précision-Rappel
-        with col2:
-            try:
-                precision, recall, _ = precision_recall_curve(y_test, y_score)
-                avg_precision = average_precision_score(y_test, y_score)
-                
-                fig = plot_precision_recall_curve(precision, recall, avg_precision)
-                st.pyplot(fig)
-            except Exception as e:
-                st.error(f"Erreur lors de la création de la courbe Précision-Rappel: {e}")
-
+    
 def regression_analysis(y_test, y_pred):
     """Analyse détaillée pour les modèles de régression."""
     st.subheader("Métriques de régression")
@@ -187,23 +156,9 @@ def feature_analysis():
     
     st.dataframe(importance_df.style.bar(subset=['Importance'], color='#5fba7d'))
     
-    # Graphique d'importance des caractéristiques
-    n_features = min(20, len(importance_df))  # Limiter à 20 caractéristiques pour la lisibilité
-    top_features = importance_df.head(n_features)
-    
-    fig = plt.figure(figsize=(12, 8))
-    plt.barh(range(len(top_features)), top_features['Importance'], align='center')
-    plt.yticks(range(len(top_features)), top_features['Feature'])
-    plt.title(f"Top {n_features} caractéristiques les plus importantes")
-    plt.xlabel('Importance')
-    plt.tight_layout()
-    st.pyplot(fig)
     
      
-    csv = importance_df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="feature_importance.csv">Télécharger les importances de caractéristiques (CSV)</a>'
-    st.markdown(href, unsafe_allow_html=True)
+    
 
 def export_model(model):
     """Exporter le modèle entraîné."""
