@@ -14,8 +14,8 @@ import io
 import base64
 from utilities import (
     plot_confusion_matrix, plot_feature_importance, 
-    plot_regression_results, plot_roc_curve, 
-    plot_precision_recall_curve
+    plot_regression_results, 
+    
 )
 
 print("Loading results_analysis.py...")
